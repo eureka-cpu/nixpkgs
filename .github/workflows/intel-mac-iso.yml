@@ -198,10 +198,10 @@ jobs:
           REPO: ${{ github.repository }}
         run: |
           version="${RELEASE_BRANCH#nixos-}"
-          tag="intel-mac-iso-${version}"
+          tag="intel-mac-iso-${version}-${UPSTREAM_SHA:0:12}"
           gh release create "$tag" \
             --repo "$REPO" \
-            --title "NixOS Intel Mac ISO ${version}" \
+            --title "NixOS Intel Mac ISO ${version} (${UPSTREAM_SHA:0:12})" \
             --notes "NixOS installer ISOs with Broadcom WiFi support for Intel Macs.
 
           Built from [\`${RELEASE_BRANCH}\`](https://github.com/NixOS/nixpkgs/tree/${RELEASE_BRANCH}) at commit \`${UPSTREAM_SHA:0:12}\` on $(date +%Y-%m-%d).
