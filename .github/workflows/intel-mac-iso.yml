@@ -106,10 +106,17 @@ jobs:
             nixos/default.nix \
             --out-link result-gnome
 
+      - name: Compress GNOME ISO
+        env:
+          RELEASE_BRANCH: ${{ needs.check.outputs.branch }}
+        run: |
+          version="${RELEASE_BRANCH#nixos-}"
+          zstd -T0 -9 "$(readlink -f result-gnome/iso/*.iso)" -o "nixos-gnome-intel-mac-${version}.iso.zst"
+
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: gnome-iso
-          path: result-gnome/iso/*.iso
+          path: "nixos-gnome-intel-mac-*.iso.zst"
           retention-days: 1
 
   build-plasma6:
@@ -154,10 +161,17 @@ jobs:
             nixos/default.nix \
             --out-link result-plasma6
 
+      - name: Compress Plasma 6 ISO
+        env:
+          RELEASE_BRANCH: ${{ needs.check.outputs.branch }}
+        run: |
+          version="${RELEASE_BRANCH#nixos-}"
+          zstd -T0 -9 "$(readlink -f result-plasma6/iso/*.iso)" -o "nixos-plasma6-intel-mac-${version}.iso.zst"
+
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: plasma6-iso
-          path: result-plasma6/iso/*.iso
+          path: "nixos-plasma6-intel-mac-*.iso.zst"
           retention-days: 1
 
   release:
@@ -176,11 +190,6 @@ jobs:
           name: plasma6-iso
           path: plasma6-iso
 
-      - name: Rename ISOs
-        run: |
-          mv gnome-iso/*.iso "nixos-gnome-intel-mac-$(date +%Y%m).iso"
-          mv plasma6-iso/*.iso "nixos-plasma6-intel-mac-$(date +%Y%m).iso"
-
       - name: Create release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -188,18 +197,21 @@ jobs:
           UPSTREAM_SHA: ${{ needs.check.outputs.upstream_sha }}
           REPO: ${{ github.repository }}
         run: |
-          tag="intel-mac-iso-$(date +%Y%m%d)"
+          version="${RELEASE_BRANCH#nixos-}"
+          tag="intel-mac-iso-${version}"
           gh release create "$tag" \
             --repo "$REPO" \
-            --title "NixOS Intel Mac ISO (${RELEASE_BRANCH})" \
+            --title "NixOS Intel Mac ISO ${version}" \
             --notes "NixOS installer ISOs with Broadcom WiFi support for Intel Macs.
 
           Built from [\`${RELEASE_BRANCH}\`](https://github.com/NixOS/nixpkgs/tree/${RELEASE_BRANCH}) at commit \`${UPSTREAM_SHA:0:12}\` on $(date +%Y-%m-%d).
 
           ## Downloads
-          - **GNOME**: \`nixos-gnome-intel-mac-$(date +%Y%m).iso\`
-          - **Plasma 6**: \`nixos-plasma6-intel-mac-$(date +%Y%m).iso\`
+          - **GNOME**: \`nixos-gnome-intel-mac-${version}.iso.zst\`
+          - **Plasma 6**: \`nixos-plasma6-intel-mac-${version}.iso.zst\`
+
+          Decompress with: \`zstd -d nixos-*-intel-mac-${version}.iso.zst\`
 
           <!-- upstream: ${RELEASE_BRANCH}@${UPSTREAM_SHA} -->" \
-            nixos-gnome-intel-mac-*.iso \
-            nixos-plasma6-intel-mac-*.iso
+            gnome-iso/*.iso.zst \
+            plasma6-iso/*.iso.zst
