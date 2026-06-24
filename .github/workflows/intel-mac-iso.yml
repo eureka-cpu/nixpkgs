@@ -107,7 +107,7 @@ jobs:
             --out-link result-gnome
 
       - name: Collect GNOME ISO
-        run: cp "$(readlink -f result-gnome/iso/*.iso)" "nixos-gnome-intel-mac-$(date +%Y%m).iso"
+        run: ln "$(readlink -f result-gnome/iso/*.iso)" "nixos-gnome-intel-mac-$(date +%Y%m).iso"
 
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
@@ -158,7 +158,7 @@ jobs:
             --out-link result-plasma6
 
       - name: Collect Plasma 6 ISO
-        run: cp "$(readlink -f result-plasma6/iso/*.iso)" "nixos-plasma6-intel-mac-$(date +%Y%m).iso"
+        run: ln "$(readlink -f result-plasma6/iso/*.iso)" "nixos-plasma6-intel-mac-$(date +%Y%m).iso"
 
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
