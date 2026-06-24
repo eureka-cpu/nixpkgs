@@ -100,9 +100,6 @@ jobs:
             sandbox = true
 
       - name: Build GNOME ISO
-        env:
-          NIXPKGS_ALLOW_UNFREE: "1"
-          NIXPKGS_ALLOW_INSECURE: "1"
         run: |
           nix-build -A config.system.build.isoImage \
             -I nixos-config=nixos/modules/installer/cd-dvd/installation-cd-graphical-gnome-intel-mac.nix \
@@ -154,9 +151,6 @@ jobs:
             sandbox = true
 
       - name: Build Plasma 6 ISO
-        env:
-          NIXPKGS_ALLOW_UNFREE: "1"
-          NIXPKGS_ALLOW_INSECURE: "1"
         run: |
           nix-build -A config.system.build.isoImage \
             -I nixos-config=nixos/modules/installer/cd-dvd/installation-cd-graphical-plasma6-intel-mac.nix \
