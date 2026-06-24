@@ -64,39 +64,9 @@ jobs:
             echo "should_build=true" >> "$GITHUB_OUTPUT"
           fi
 
-  update-branch:
-    name: Update intel-mac-iso onto ${{ needs.check.outputs.branch }}
-    needs: check
-    if: needs.check.outputs.should_build == 'true'
-    runs-on: ubuntu-24.04
-    outputs:
-      sha: ${{ steps.push.outputs.sha }}
-    steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
-        with:
-          ref: intel-mac-iso
-          fetch-depth: 0
-
-      - name: Rebase onto upstream stable branch
-        env:
-          RELEASE_BRANCH: ${{ needs.check.outputs.branch }}
-          UPSTREAM_SHA: ${{ needs.check.outputs.upstream_sha }}
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git remote add upstream https://github.com/NixOS/nixpkgs.git
-          git fetch upstream "$RELEASE_BRANCH"
-          git merge --no-edit "upstream/$RELEASE_BRANCH"
-
-      - name: Push updated branch
-        id: push
-        run: |
-          git push origin intel-mac-iso
-          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
-
   build-gnome:
     name: Build GNOME ISO
-    needs: [check, update-branch]
+    needs: check
     if: needs.check.outputs.should_build == 'true'
     runs-on: ubuntu-24.04
     steps:
@@ -104,9 +74,25 @@ jobs:
         with:
           hatchet-protocol: rampage
 
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+      - name: Checkout NixOS/nixpkgs at upstream stable SHA
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
         with:
-          ref: ${{ needs.update-branch.outputs.sha }}
+          repository: NixOS/nixpkgs
+          ref: ${{ needs.check.outputs.upstream_sha }}
+          filter: blob:none
+
+      - name: Overlay Intel Mac nix configs
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        with:
+          ref: intel-mac-iso
+          sparse-checkout: |
+            nixos/modules/installer/cd-dvd/installation-cd-graphical-gnome-intel-mac.nix
+            nixos/modules/installer/cd-dvd/installation-cd-graphical-plasma6-intel-mac.nix
+          path: our-configs
+
+      - run: |
+          cp our-configs/nixos/modules/installer/cd-dvd/installation-cd-graphical-gnome-intel-mac.nix \
+            nixos/modules/installer/cd-dvd/
 
       - uses: cachix/install-nix-action@8aa03977d8d733052d78f4e008a241fd1dbf36b3
         with:
@@ -133,7 +119,7 @@ jobs:
 
   build-plasma6:
     name: Build Plasma 6 ISO
-    needs: [check, update-branch]
+    needs: check
     if: needs.check.outputs.should_build == 'true'
     runs-on: ubuntu-24.04
     steps:
@@ -141,9 +127,25 @@ jobs:
         with:
           hatchet-protocol: rampage
 
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+      - name: Checkout NixOS/nixpkgs at upstream stable SHA
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
         with:
-          ref: ${{ needs.update-branch.outputs.sha }}
+          repository: NixOS/nixpkgs
+          ref: ${{ needs.check.outputs.upstream_sha }}
+          filter: blob:none
+
+      - name: Overlay Intel Mac nix configs
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        with:
+          ref: intel-mac-iso
+          sparse-checkout: |
+            nixos/modules/installer/cd-dvd/installation-cd-graphical-gnome-intel-mac.nix
+            nixos/modules/installer/cd-dvd/installation-cd-graphical-plasma6-intel-mac.nix
+          path: our-configs
+
+      - run: |
+          cp our-configs/nixos/modules/installer/cd-dvd/installation-cd-graphical-plasma6-intel-mac.nix \
+            nixos/modules/installer/cd-dvd/
 
       - uses: cachix/install-nix-action@8aa03977d8d733052d78f4e008a241fd1dbf36b3
         with:
@@ -170,7 +172,7 @@ jobs:
 
   release:
     name: Create release
-    needs: [check, update-branch, build-gnome, build-plasma6]
+    needs: [check, build-gnome, build-plasma6]
     if: needs.check.outputs.should_build == 'true'
     runs-on: ubuntu-24.04
     steps:
