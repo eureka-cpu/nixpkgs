@@ -106,6 +106,9 @@ jobs:
             nixos/default.nix \
             --out-link result-gnome
 
+      - name: Garbage collect build dependencies
+        run: nix-collect-garbage
+
       - name: Compress GNOME ISO
         env:
           RELEASE_BRANCH: ${{ needs.check.outputs.branch }}
@@ -160,6 +163,9 @@ jobs:
             -I nixos-config=nixos/modules/installer/cd-dvd/installation-cd-graphical-plasma6-intel-mac.nix \
             nixos/default.nix \
             --out-link result-plasma6
+
+      - name: Garbage collect build dependencies
+        run: nix-collect-garbage
 
       - name: Compress Plasma 6 ISO
         env:
