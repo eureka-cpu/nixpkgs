@@ -106,13 +106,10 @@ jobs:
             nixos/default.nix \
             --out-link result-gnome
 
-      - name: Collect GNOME ISO
-        run: ln "$(readlink -f result-gnome/iso/*.iso)" "nixos-gnome-intel-mac-$(date +%Y%m).iso"
-
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: gnome-iso
-          path: "nixos-gnome-intel-mac-*.iso"
+          path: result-gnome/iso/*.iso
           retention-days: 1
 
   build-plasma6:
@@ -157,13 +154,10 @@ jobs:
             nixos/default.nix \
             --out-link result-plasma6
 
-      - name: Collect Plasma 6 ISO
-        run: ln "$(readlink -f result-plasma6/iso/*.iso)" "nixos-plasma6-intel-mac-$(date +%Y%m).iso"
-
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: plasma6-iso
-          path: "nixos-plasma6-intel-mac-*.iso"
+          path: result-plasma6/iso/*.iso
           retention-days: 1
 
   release:
@@ -175,10 +169,17 @@ jobs:
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
           name: gnome-iso
+          path: gnome-iso
 
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
           name: plasma6-iso
+          path: plasma6-iso
+
+      - name: Rename ISOs
+        run: |
+          mv gnome-iso/*.iso "nixos-gnome-intel-mac-$(date +%Y%m).iso"
+          mv plasma6-iso/*.iso "nixos-plasma6-intel-mac-$(date +%Y%m).iso"
 
       - name: Create release
         env:
