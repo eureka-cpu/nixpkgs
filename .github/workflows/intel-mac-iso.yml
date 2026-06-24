@@ -1,0 +1,206 @@
+name: "Intel Mac ISO"
+
+on:
+  schedule:
+    - cron: "0 0 1 * *" # First of every month
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  check:
+    name: Check for upstream changes
+    runs-on: ubuntu-24.04
+    outputs:
+      should_build: ${{ steps.compare.outputs.should_build }}
+      branch: ${{ steps.find.outputs.branch }}
+      upstream_sha: ${{ steps.find.outputs.upstream_sha }}
+    steps:
+      - name: Find latest nixos-YY.MM branch and its HEAD SHA
+        id: find
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          result=$(gh api 'repos/NixOS/nixpkgs/git/matching-refs/heads/nixos-' \
+            --jq '.[] | select(.ref | test("^refs/heads/nixos-[0-9]{2}\\.[0-9]{2}$")) | .ref + " " + .object.sha' \
+            | sort -V \
+            | tail -1)
+          branch=$(echo "$result" | awk '{print $1}' | sed 's|refs/heads/||')
+          sha=$(echo "$result" | awk '{print $2}')
+          echo "branch=$branch" >> "$GITHUB_OUTPUT"
+          echo "upstream_sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "Latest stable branch: $branch @ $sha"
+
+      - name: Get branch and SHA from last release
+        id: last
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          body=$(gh api "repos/$REPO/releases/latest" --jq '.body' 2>/dev/null || echo "")
+          token=$(echo "$body" | grep -oP '(?<=<!-- upstream: )[^>]+(?= -->)' || echo "")
+          echo "last_branch=${token%@*}" >> "$GITHUB_OUTPUT"
+          echo "last_sha=${token#*@}" >> "$GITHUB_OUTPUT"
+          echo "Last built: ${token:-none}"
+
+      - name: Decide whether to build
+        id: compare
+        env:
+          BRANCH: ${{ steps.find.outputs.branch }}
+          SHA: ${{ steps.find.outputs.upstream_sha }}
+          LAST_BRANCH: ${{ steps.last.outputs.last_branch }}
+          LAST_SHA: ${{ steps.last.outputs.last_sha }}
+        run: |
+          if [[ "$BRANCH" == "$LAST_BRANCH" && "$SHA" == "$LAST_SHA" ]]; then
+            echo "Stable branch $BRANCH has not changed since last build — skipping."
+            echo "should_build=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Change detected: $LAST_BRANCH@$LAST_SHA → $BRANCH@$SHA"
+            echo "should_build=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  update-branch:
+    name: Update intel-mac-iso onto ${{ needs.check.outputs.branch }}
+    needs: check
+    if: needs.check.outputs.should_build == 'true'
+    runs-on: ubuntu-24.04
+    outputs:
+      sha: ${{ steps.push.outputs.sha }}
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        with:
+          ref: intel-mac-iso
+          fetch-depth: 0
+
+      - name: Rebase onto upstream stable branch
+        env:
+          RELEASE_BRANCH: ${{ needs.check.outputs.branch }}
+          UPSTREAM_SHA: ${{ needs.check.outputs.upstream_sha }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git remote add upstream https://github.com/NixOS/nixpkgs.git
+          git fetch upstream "$RELEASE_BRANCH"
+          git merge --no-edit "upstream/$RELEASE_BRANCH"
+
+      - name: Push updated branch
+        id: push
+        run: |
+          git push origin intel-mac-iso
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+  build-gnome:
+    name: Build GNOME ISO
+    needs: [check, update-branch]
+    if: needs.check.outputs.should_build == 'true'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: wimpysworld/nothing-but-nix@baf7355748bb5651f08b839669d6bb39051b2874
+        with:
+          hatchet-protocol: rampage
+
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        with:
+          ref: ${{ needs.update-branch.outputs.sha }}
+
+      - uses: cachix/install-nix-action@8aa03977d8d733052d78f4e008a241fd1dbf36b3
+        with:
+          extra_nix_config: |
+            sandbox = true
+
+      - name: Build GNOME ISO
+        env:
+          NIXPKGS_ALLOW_UNFREE: "1"
+        run: |
+          nix-build -A config.system.build.isoImage \
+            -I nixos-config=nixos/modules/installer/cd-dvd/installation-cd-graphical-gnome-intel-mac.nix \
+            nixos/default.nix \
+            --out-link result-gnome
+
+      - name: Collect GNOME ISO
+        run: cp "$(readlink -f result-gnome/iso/*.iso)" "nixos-gnome-intel-mac-$(date +%Y%m).iso"
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: gnome-iso
+          path: "nixos-gnome-intel-mac-*.iso"
+          retention-days: 1
+
+  build-plasma6:
+    name: Build Plasma 6 ISO
+    needs: [check, update-branch]
+    if: needs.check.outputs.should_build == 'true'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: wimpysworld/nothing-but-nix@baf7355748bb5651f08b839669d6bb39051b2874
+        with:
+          hatchet-protocol: rampage
+
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        with:
+          ref: ${{ needs.update-branch.outputs.sha }}
+
+      - uses: cachix/install-nix-action@8aa03977d8d733052d78f4e008a241fd1dbf36b3
+        with:
+          extra_nix_config: |
+            sandbox = true
+
+      - name: Build Plasma 6 ISO
+        env:
+          NIXPKGS_ALLOW_UNFREE: "1"
+        run: |
+          nix-build -A config.system.build.isoImage \
+            -I nixos-config=nixos/modules/installer/cd-dvd/installation-cd-graphical-plasma6-intel-mac.nix \
+            nixos/default.nix \
+            --out-link result-plasma6
+
+      - name: Collect Plasma 6 ISO
+        run: cp "$(readlink -f result-plasma6/iso/*.iso)" "nixos-plasma6-intel-mac-$(date +%Y%m).iso"
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: plasma6-iso
+          path: "nixos-plasma6-intel-mac-*.iso"
+          retention-days: 1
+
+  release:
+    name: Create release
+    needs: [check, update-branch, build-gnome, build-plasma6]
+    if: needs.check.outputs.should_build == 'true'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: gnome-iso
+
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: plasma6-iso
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_BRANCH: ${{ needs.check.outputs.branch }}
+          UPSTREAM_SHA: ${{ needs.check.outputs.upstream_sha }}
+          REPO: ${{ github.repository }}
+        run: |
+          tag="intel-mac-iso-$(date +%Y%m%d)"
+          gh release create "$tag" \
+            --repo "$REPO" \
+            --title "NixOS Intel Mac ISO (${RELEASE_BRANCH})" \
+            --notes "NixOS installer ISOs with Broadcom WiFi support for Intel Macs.
+
+          Built from [\`${RELEASE_BRANCH}\`](https://github.com/NixOS/nixpkgs/tree/${RELEASE_BRANCH}) at commit \`${UPSTREAM_SHA:0:12}\` on $(date +%Y-%m-%d).
+
+          ## Downloads
+          - **GNOME**: \`nixos-gnome-intel-mac-$(date +%Y%m).iso\`
+          - **Plasma 6**: \`nixos-plasma6-intel-mac-$(date +%Y%m).iso\`
+
+          <!-- upstream: ${RELEASE_BRANCH}@${UPSTREAM_SHA} -->" \
+            nixos-gnome-intel-mac-*.iso \
+            nixos-plasma6-intel-mac-*.iso
