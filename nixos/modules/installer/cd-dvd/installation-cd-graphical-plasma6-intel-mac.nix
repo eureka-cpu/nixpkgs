@@ -6,7 +6,7 @@
 {
   imports = [ ./installation-cd-graphical-calamares-plasma6.nix ];
 
-  nixpkgs.config.allowUnfreePredicate = pkg: builtins.elem (builtins.parseDrvName pkg.name).name [ "broadcom-sta" "brave" ];
+  nixpkgs.config.allowUnfreePredicate = pkg: builtins.elem (builtins.parseDrvName pkg.name).name [ "broadcom-sta" ];
   nixpkgs.config.allowInsecurePredicate = pkg: builtins.elem (builtins.parseDrvName pkg.name).name [ "broadcom-sta" ];
 
   # This is real hardware — no VM guest additions needed
