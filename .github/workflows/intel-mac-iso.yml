@@ -110,7 +110,7 @@ jobs:
       - name: Install oras
         run: |
           curl -sL https://github.com/oras-project/oras/releases/download/v1.2.2/oras_1.2.2_linux_amd64.tar.gz \
-            | tar -zxf - -C /usr/local/bin/ oras
+            | sudo tar -zxf - -C /usr/local/bin/ oras
 
       - name: Push GNOME ISO to GHCR
         env:
@@ -170,7 +170,7 @@ jobs:
       - name: Install oras
         run: |
           curl -sL https://github.com/oras-project/oras/releases/download/v1.2.2/oras_1.2.2_linux_amd64.tar.gz \
-            | tar -zxf - -C /usr/local/bin/ oras
+            | sudo tar -zxf - -C /usr/local/bin/ oras
 
       - name: Push Plasma 6 ISO to GHCR
         env:
