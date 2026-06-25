@@ -122,7 +122,7 @@ jobs:
           tag="${version}-${UPSTREAM_SHA:0:12}"
           iso_path="$(readlink -f result-gnome/iso/*.iso)"
           echo "$GITHUB_TOKEN" | oras login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
-          oras push "ghcr.io/${{ github.repository_owner }}/nixos-intel-mac:${tag}-gnome" \
+          oras push --disable-path-validation "ghcr.io/${{ github.repository_owner }}/nixos-intel-mac:${tag}-gnome" \
             "${iso_path}:application/octet-stream"
 
   build-plasma6:
@@ -182,7 +182,7 @@ jobs:
           tag="${version}-${UPSTREAM_SHA:0:12}"
           iso_path="$(readlink -f result-plasma6/iso/*.iso)"
           echo "$GITHUB_TOKEN" | oras login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
-          oras push "ghcr.io/${{ github.repository_owner }}/nixos-intel-mac:${tag}-plasma6" \
+          oras push --disable-path-validation "ghcr.io/${{ github.repository_owner }}/nixos-intel-mac:${tag}-plasma6" \
             "${iso_path}:application/octet-stream"
 
   release:
