@@ -88,7 +88,6 @@ jobs:
           ref: intel-mac-iso
           sparse-checkout: |
             nixos/modules/installer/cd-dvd/installation-cd-graphical-gnome-intel-mac.nix
-            nixos/modules/installer/cd-dvd/installation-cd-graphical-plasma6-intel-mac.nix
           path: our-configs
 
       - run: |
@@ -123,68 +122,9 @@ jobs:
           path: "nixos-gnome-intel-mac-*.iso.zst"
           retention-days: 1
 
-  build-plasma6:
-    name: Build Plasma 6 ISO
-    needs: check
-    if: needs.check.outputs.should_build == 'true'
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: wimpysworld/nothing-but-nix@baf7355748bb5651f08b839669d6bb39051b2874
-        with:
-          hatchet-protocol: rampage
-          root-safe-haven: '6144'
-
-      - name: Checkout NixOS/nixpkgs at upstream stable SHA
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
-        with:
-          repository: NixOS/nixpkgs
-          ref: ${{ needs.check.outputs.upstream_sha }}
-          filter: blob:none
-
-      - name: Overlay Intel Mac nix configs
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
-        with:
-          ref: intel-mac-iso
-          sparse-checkout: |
-            nixos/modules/installer/cd-dvd/installation-cd-graphical-gnome-intel-mac.nix
-            nixos/modules/installer/cd-dvd/installation-cd-graphical-plasma6-intel-mac.nix
-          path: our-configs
-
-      - run: |
-          cp our-configs/nixos/modules/installer/cd-dvd/installation-cd-graphical-plasma6-intel-mac.nix \
-            nixos/modules/installer/cd-dvd/
-
-      - uses: cachix/install-nix-action@8aa03977d8d733052d78f4e008a241fd1dbf36b3
-        with:
-          extra_nix_config: |
-            sandbox = true
-
-      - name: Build Plasma 6 ISO
-        run: |
-          nix-build -A config.system.build.isoImage \
-            -I nixos-config=nixos/modules/installer/cd-dvd/installation-cd-graphical-plasma6-intel-mac.nix \
-            nixos/default.nix \
-            --out-link result-plasma6
-
-      - name: Garbage collect build dependencies
-        run: nix-collect-garbage
-
-      - name: Compress Plasma 6 ISO
-        env:
-          RELEASE_BRANCH: ${{ needs.check.outputs.branch }}
-        run: |
-          version="${RELEASE_BRANCH#nixos-}"
-          zstd -T0 --ultra -19 "$(readlink -f result-plasma6/iso/*.iso)" -o "nixos-plasma6-intel-mac-${version}.iso.zst"
-
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
-        with:
-          name: plasma6-iso
-          path: "nixos-plasma6-intel-mac-*.iso.zst"
-          retention-days: 1
-
   release:
     name: Create release
-    needs: [check, build-gnome, build-plasma6]
+    needs: [check, build-gnome]
     if: needs.check.outputs.should_build == 'true'
     runs-on: ubuntu-24.04
     steps:
@@ -192,11 +132,6 @@ jobs:
         with:
           name: gnome-iso
           path: gnome-iso
-
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
-        with:
-          name: plasma6-iso
-          path: plasma6-iso
 
       - name: Create release
         env:
@@ -210,16 +145,14 @@ jobs:
           gh release create "$tag" \
             --repo "$REPO" \
             --title "NixOS Intel Mac ISO ${version} (${UPSTREAM_SHA:0:12})" \
-            --notes "NixOS installer ISOs with Broadcom WiFi support for Intel Macs.
+            --notes "NixOS GNOME installer ISO with Broadcom WiFi support for Intel Macs.
 
           Built from [\`${RELEASE_BRANCH}\`](https://github.com/NixOS/nixpkgs/tree/${RELEASE_BRANCH}) at commit \`${UPSTREAM_SHA:0:12}\` on $(date +%Y-%m-%d).
 
           ## Downloads
           - **GNOME**: \`nixos-gnome-intel-mac-${version}.iso.zst\`
-          - **Plasma 6**: \`nixos-plasma6-intel-mac-${version}.iso.zst\`
 
-          Decompress with: \`zstd -d nixos-*-intel-mac-${version}.iso.zst\`
+          Decompress with: \`zstd -d nixos-gnome-intel-mac-${version}.iso.zst\`
 
           <!-- upstream: ${RELEASE_BRANCH}@${UPSTREAM_SHA} -->" \
-            gnome-iso/*.iso.zst \
-            plasma6-iso/*.iso.zst
+            gnome-iso/*.iso.zst
