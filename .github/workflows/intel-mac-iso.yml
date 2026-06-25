@@ -114,12 +114,12 @@ jobs:
           RELEASE_BRANCH: ${{ needs.check.outputs.branch }}
         run: |
           version="${RELEASE_BRANCH#nixos-}"
-          zstd -T0 -9 "$(readlink -f result-gnome/iso/*.iso)" -o "$TMPDIR/nixos-gnome-intel-mac-${version}.iso.zst"
+          zstd -T0 -9 "$(readlink -f result-gnome/iso/*.iso)" -o "nixos-gnome-intel-mac-${version}.iso.zst"
 
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: gnome-iso
-          path: "${{ env.TMPDIR }}/nixos-gnome-intel-mac-*.iso.zst"
+          path: "nixos-gnome-intel-mac-*.iso.zst"
           retention-days: 1
 
   build-plasma6:
@@ -172,12 +172,12 @@ jobs:
           RELEASE_BRANCH: ${{ needs.check.outputs.branch }}
         run: |
           version="${RELEASE_BRANCH#nixos-}"
-          zstd -T0 -9 "$(readlink -f result-plasma6/iso/*.iso)" -o "/mnt/nixos-plasma6-intel-mac-${version}.iso.zst"
+          zstd -T0 -9 "$(readlink -f result-plasma6/iso/*.iso)" -o "nixos-plasma6-intel-mac-${version}.iso.zst"
 
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: plasma6-iso
-          path: "${{ env.TMPDIR }}/nixos-plasma6-intel-mac-*.iso.zst"
+          path: "nixos-plasma6-intel-mac-*.iso.zst"
           retention-days: 1
 
   release:
