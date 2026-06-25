@@ -4,6 +4,11 @@ on:
   schedule:
     - cron: "0 0 1 * *" # First of every month
   workflow_dispatch:
+    inputs:
+      force:
+        description: 'Force build even if upstream has not changed'
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -56,76 +61,18 @@ jobs:
           SHA: ${{ steps.find.outputs.upstream_sha }}
           LAST_BRANCH: ${{ steps.last.outputs.last_branch }}
           LAST_SHA: ${{ steps.last.outputs.last_sha }}
+          FORCE: ${{ inputs.force }}
         run: |
-          if [[ "$BRANCH" == "$LAST_BRANCH" && "$SHA" == "$LAST_SHA" ]]; then
+          if [[ "$FORCE" == "true" ]]; then
+            echo "Force build requested — skipping change detection."
+            echo "should_build=true" >> "$GITHUB_OUTPUT"
+          elif [[ "$BRANCH" == "$LAST_BRANCH" && "$SHA" == "$LAST_SHA" ]]; then
             echo "Stable branch $BRANCH has not changed since last build — skipping."
             echo "should_build=false" >> "$GITHUB_OUTPUT"
           else
             echo "Change detected: $LAST_BRANCH@$LAST_SHA → $BRANCH@$SHA"
             echo "should_build=true" >> "$GITHUB_OUTPUT"
           fi
-
-  build-gnome:
-    name: Build GNOME ISO
-    needs: check
-    if: needs.check.outputs.should_build == 'true'
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: wimpysworld/nothing-but-nix@baf7355748bb5651f08b839669d6bb39051b2874
-        with:
-          hatchet-protocol: rampage
-          root-safe-haven: '6144'
-
-      - name: Checkout NixOS/nixpkgs at upstream stable SHA
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
-        with:
-          repository: NixOS/nixpkgs
-          ref: ${{ needs.check.outputs.upstream_sha }}
-          filter: blob:none
-
-      - name: Overlay Intel Mac nix configs
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
-        with:
-          ref: intel-mac-iso
-          sparse-checkout: |
-            nixos/modules/installer/cd-dvd/installation-cd-graphical-gnome-intel-mac.nix
-          path: our-configs
-
-      - run: |
-          cp our-configs/nixos/modules/installer/cd-dvd/installation-cd-graphical-gnome-intel-mac.nix \
-            nixos/modules/installer/cd-dvd/
-
-      - uses: cachix/install-nix-action@8aa03977d8d733052d78f4e008a241fd1dbf36b3
-        with:
-          extra_nix_config: |
-            sandbox = true
-
-      - name: Build GNOME ISO
-        run: |
-          nix-build -A config.system.build.isoImage \
-            -I nixos-config=nixos/modules/installer/cd-dvd/installation-cd-graphical-gnome-intel-mac.nix \
-            nixos/default.nix \
-            --out-link result-gnome
-
-      - name: Install oras
-        run: |
-          curl -sL https://github.com/oras-project/oras/releases/download/v1.2.2/oras_1.2.2_linux_amd64.tar.gz \
-            | sudo tar -zxf - -C /usr/local/bin/ oras
-
-      - name: Push GNOME ISO to GHCR
-        env:
-          RELEASE_BRANCH: ${{ needs.check.outputs.branch }}
-          UPSTREAM_SHA: ${{ needs.check.outputs.upstream_sha }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          version="${RELEASE_BRANCH#nixos-}"
-          tag="${version}-${UPSTREAM_SHA:0:12}"
-          iso_path="$(readlink -f result-gnome/iso/*.iso)"
-          echo "$GITHUB_TOKEN" | oras login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
-          oras push --disable-path-validation \
-            --annotation "${iso_path}:org.opencontainers.image.title=nixos-gnome-intel-mac-${version}.iso" \
-            "ghcr.io/${{ github.repository_owner }}/nixos-intel-mac:${tag}-gnome" \
-            "${iso_path}:application/octet-stream"
 
   build-plasma6:
     name: Build Plasma 6 ISO
@@ -191,7 +138,7 @@ jobs:
 
   release:
     name: Create release
-    needs: [check, build-gnome, build-plasma6]
+    needs: [check, build-plasma6]
     if: needs.check.outputs.should_build == 'true'
     runs-on: ubuntu-24.04
     steps:
@@ -207,20 +154,14 @@ jobs:
           gh release create "$tag" \
             --repo "$REPO" \
             --title "NixOS Intel Mac ISO ${version} (${UPSTREAM_SHA:0:12})" \
-            --notes "NixOS installer ISOs with Broadcom WiFi support for Intel Macs.
+            --notes "NixOS Plasma 6 installer ISO with Broadcom WiFi support for Intel Macs.
 
           Built from [\`${RELEASE_BRANCH}\`](https://github.com/NixOS/nixpkgs/tree/${RELEASE_BRANCH}) at commit \`${UPSTREAM_SHA:0:12}\` on $(date +%Y-%m-%d).
 
           ## Download
 
-          Install [oras](https://oras.land), then pull the ISO you want:
+          Install [oras](https://oras.land), then pull the ISO:
 
-          **GNOME** (with Brave):
-          \`\`\`
-          oras pull ghcr.io/${{ github.repository_owner }}/nixos-intel-mac:${version}-${UPSTREAM_SHA:0:12}-gnome
-          \`\`\`
-
-          **Plasma 6** (with Brave):
           \`\`\`
           oras pull ghcr.io/${{ github.repository_owner }}/nixos-intel-mac:${version}-${UPSTREAM_SHA:0:12}-plasma6
           \`\`\`
