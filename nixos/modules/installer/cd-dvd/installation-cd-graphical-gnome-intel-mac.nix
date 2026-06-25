@@ -1,7 +1,7 @@
 # This module defines a NixOS installation CD that contains GNOME,
 # with support for WiFi adapters present in some Intel Macs (Broadcom).
 
-{ config, pkgs, ... }:
+{ config, pkgs, lib, ... }:
 
 {
   imports = [ ./installation-cd-graphical-gnome.nix ];
@@ -9,23 +9,42 @@
   nixpkgs.config.allowUnfreePredicate = pkg: builtins.elem (builtins.parseDrvName pkg.name).name [ "broadcom-sta" ];
   nixpkgs.config.allowInsecurePredicate = pkg: builtins.elem (builtins.parseDrvName pkg.name).name [ "broadcom-sta" ];
 
-  # Strip packages that serve no purpose on an installer ISO
+  # This is real hardware — no VM guest additions needed
+  services.spice-vdagentd.enable = lib.mkForce false;
+  services.qemuGuest.enable = lib.mkForce false;
+  virtualisation.vmware.guest.enable = lib.mkForce false;
+  virtualisation.hypervGuest.enable = lib.mkForce false;
+  services.xe-guest-utilities.enable = lib.mkForce false;
+
+  # Drop Firefox and mesa-demos; epiphany (GNOME Web) is kept as the lightweight browser
+  environment.defaultPackages = with pkgs; [
+    gparted
+    vim
+    nano
+  ];
+
+  # Strip GNOME apps that serve no purpose on an installer ISO
   environment.gnome.excludePackages = with pkgs; [
-    baobab          # disk usage analyzer
-    cheese          # webcam app
-    decibels        # audio player
-    epiphany        # web browser (firefox is already included)
+    baobab            # disk usage analyzer
+    cheese            # webcam app
+    decibels          # audio player
     gnome-calendar
+    gnome-characters
     gnome-clocks
+    gnome-connections # remote desktop client
     gnome-contacts
+    gnome-font-viewer
+    gnome-logs
     gnome-maps
     gnome-music
-    gnome-tour      # first-run welcome tour
+    gnome-system-monitor
+    gnome-tour        # first-run welcome tour
     gnome-user-docs
     gnome-weather
-    simple-scan     # scanner app
-    totem           # video player
-    yelp            # help browser
+    seahorse          # passwords and keys
+    simple-scan       # scanner app
+    totem             # video player
+    yelp              # help browser
   ];
 
   boot.initrd.kernelModules = [ "wl" ];
