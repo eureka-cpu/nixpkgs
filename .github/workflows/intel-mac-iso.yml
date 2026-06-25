@@ -115,7 +115,7 @@ jobs:
           RELEASE_BRANCH: ${{ needs.check.outputs.branch }}
         run: |
           version="${RELEASE_BRANCH#nixos-}"
-          zstd -T0 -9 "$(readlink -f result-gnome/iso/*.iso)" -o "nixos-gnome-intel-mac-${version}.iso.zst"
+          zstd -T0 --ultra -19 "$(readlink -f result-gnome/iso/*.iso)" -o "nixos-gnome-intel-mac-${version}.iso.zst"
 
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
@@ -174,7 +174,7 @@ jobs:
           RELEASE_BRANCH: ${{ needs.check.outputs.branch }}
         run: |
           version="${RELEASE_BRANCH#nixos-}"
-          zstd -T0 -9 "$(readlink -f result-plasma6/iso/*.iso)" -o "nixos-plasma6-intel-mac-${version}.iso.zst"
+          zstd -T0 --ultra -19 "$(readlink -f result-plasma6/iso/*.iso)" -o "nixos-plasma6-intel-mac-${version}.iso.zst"
 
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
