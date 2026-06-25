@@ -4,6 +4,11 @@ on:
   schedule:
     - cron: "0 0 1 * *" # First of every month
   workflow_dispatch:
+    inputs:
+      force:
+        description: 'Force build even if upstream has not changed'
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -56,8 +61,12 @@ jobs:
           SHA: ${{ steps.find.outputs.upstream_sha }}
           LAST_BRANCH: ${{ steps.last.outputs.last_branch }}
           LAST_SHA: ${{ steps.last.outputs.last_sha }}
+          FORCE: ${{ inputs.force }}
         run: |
-          if [[ "$BRANCH" == "$LAST_BRANCH" && "$SHA" == "$LAST_SHA" ]]; then
+          if [[ "$FORCE" == "true" ]]; then
+            echo "Force build requested — skipping change detection."
+            echo "should_build=true" >> "$GITHUB_OUTPUT"
+          elif [[ "$BRANCH" == "$LAST_BRANCH" && "$SHA" == "$LAST_SHA" ]]; then
             echo "Stable branch $BRANCH has not changed since last build — skipping."
             echo "should_build=false" >> "$GITHUB_OUTPUT"
           else
