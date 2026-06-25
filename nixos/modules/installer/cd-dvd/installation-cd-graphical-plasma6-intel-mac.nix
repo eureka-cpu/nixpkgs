@@ -33,6 +33,10 @@
     krdp         # remote desktop
   ];
 
+  # Use iwd as the NetworkManager WiFi backend — wpa_supplicant has known
+  # compatibility issues with Broadcom adapters on Intel Macs
+  networking.networkmanager.wifi.backend = "iwd";
+
   boot.initrd.kernelModules = [ "wl" ];
 
   boot.kernelModules = [ "kvm-intel" "wl" ];
