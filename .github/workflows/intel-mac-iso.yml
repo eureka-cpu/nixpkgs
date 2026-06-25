@@ -112,7 +112,7 @@ jobs:
           curl -sL https://github.com/oras-project/oras/releases/download/v1.2.2/oras_1.2.2_linux_amd64.tar.gz \
             | tar -zxf - -C /usr/local/bin/ oras
 
-      - name: Push ISO to GHCR
+      - name: Push GNOME ISO to GHCR
         env:
           RELEASE_BRANCH: ${{ needs.check.outputs.branch }}
           UPSTREAM_SHA: ${{ needs.check.outputs.upstream_sha }}
@@ -121,14 +121,73 @@ jobs:
           version="${RELEASE_BRANCH#nixos-}"
           tag="${version}-${UPSTREAM_SHA:0:12}"
           iso_path="$(readlink -f result-gnome/iso/*.iso)"
-          iso_name="$(basename "$iso_path")"
           echo "$GITHUB_TOKEN" | oras login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
-          oras push "ghcr.io/${{ github.repository_owner }}/nixos-intel-mac:${tag}" \
+          oras push "ghcr.io/${{ github.repository_owner }}/nixos-intel-mac:${tag}-gnome" \
+            "${iso_path}:application/octet-stream"
+
+  build-plasma6:
+    name: Build Plasma 6 ISO
+    needs: check
+    if: needs.check.outputs.should_build == 'true'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: wimpysworld/nothing-but-nix@baf7355748bb5651f08b839669d6bb39051b2874
+        with:
+          hatchet-protocol: rampage
+          root-safe-haven: '6144'
+
+      - name: Checkout NixOS/nixpkgs at upstream stable SHA
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        with:
+          repository: NixOS/nixpkgs
+          ref: ${{ needs.check.outputs.upstream_sha }}
+          filter: blob:none
+
+      - name: Overlay Intel Mac nix configs
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        with:
+          ref: intel-mac-iso
+          sparse-checkout: |
+            nixos/modules/installer/cd-dvd/installation-cd-graphical-plasma6-intel-mac.nix
+          path: our-configs
+
+      - run: |
+          cp our-configs/nixos/modules/installer/cd-dvd/installation-cd-graphical-plasma6-intel-mac.nix \
+            nixos/modules/installer/cd-dvd/
+
+      - uses: cachix/install-nix-action@8aa03977d8d733052d78f4e008a241fd1dbf36b3
+        with:
+          extra_nix_config: |
+            sandbox = true
+
+      - name: Build Plasma 6 ISO
+        run: |
+          nix-build -A config.system.build.isoImage \
+            -I nixos-config=nixos/modules/installer/cd-dvd/installation-cd-graphical-plasma6-intel-mac.nix \
+            nixos/default.nix \
+            --out-link result-plasma6
+
+      - name: Install oras
+        run: |
+          curl -sL https://github.com/oras-project/oras/releases/download/v1.2.2/oras_1.2.2_linux_amd64.tar.gz \
+            | tar -zxf - -C /usr/local/bin/ oras
+
+      - name: Push Plasma 6 ISO to GHCR
+        env:
+          RELEASE_BRANCH: ${{ needs.check.outputs.branch }}
+          UPSTREAM_SHA: ${{ needs.check.outputs.upstream_sha }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          version="${RELEASE_BRANCH#nixos-}"
+          tag="${version}-${UPSTREAM_SHA:0:12}"
+          iso_path="$(readlink -f result-plasma6/iso/*.iso)"
+          echo "$GITHUB_TOKEN" | oras login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          oras push "ghcr.io/${{ github.repository_owner }}/nixos-intel-mac:${tag}-plasma6" \
             "${iso_path}:application/octet-stream"
 
   release:
     name: Create release
-    needs: [check, build-gnome]
+    needs: [check, build-gnome, build-plasma6]
     if: needs.check.outputs.should_build == 'true'
     runs-on: ubuntu-24.04
     steps:
@@ -144,15 +203,22 @@ jobs:
           gh release create "$tag" \
             --repo "$REPO" \
             --title "NixOS Intel Mac ISO ${version} (${UPSTREAM_SHA:0:12})" \
-            --notes "NixOS GNOME installer ISO with Broadcom WiFi support for Intel Macs.
+            --notes "NixOS installer ISOs with Broadcom WiFi support for Intel Macs.
 
           Built from [\`${RELEASE_BRANCH}\`](https://github.com/NixOS/nixpkgs/tree/${RELEASE_BRANCH}) at commit \`${UPSTREAM_SHA:0:12}\` on $(date +%Y-%m-%d).
 
           ## Download
 
-          Install [oras](https://oras.land), then pull with:
+          Install [oras](https://oras.land), then pull the ISO you want:
+
+          **GNOME** (with Epiphany + Brave):
           \`\`\`
-          oras pull ghcr.io/${{ github.repository_owner }}/nixos-intel-mac:${version}-${UPSTREAM_SHA:0:12}
+          oras pull ghcr.io/${{ github.repository_owner }}/nixos-intel-mac:${version}-${UPSTREAM_SHA:0:12}-gnome
+          \`\`\`
+
+          **Plasma 6** (with Brave):
+          \`\`\`
+          oras pull ghcr.io/${{ github.repository_owner }}/nixos-intel-mac:${version}-${UPSTREAM_SHA:0:12}-plasma6
           \`\`\`
 
           <!-- upstream: ${RELEASE_BRANCH}@${UPSTREAM_SHA} -->"

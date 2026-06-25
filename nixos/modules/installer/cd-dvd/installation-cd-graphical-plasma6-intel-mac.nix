@@ -1,10 +1,10 @@
-# This module defines a NixOS installation CD that contains GNOME,
+# This module defines a NixOS installation CD that contains Plasma 6,
 # with support for WiFi adapters present in some Intel Macs (Broadcom).
 
 { config, pkgs, lib, ... }:
 
 {
-  imports = [ ./installation-cd-graphical-gnome.nix ];
+  imports = [ ./installation-cd-graphical-calamares-plasma6.nix ];
 
   nixpkgs.config.allowUnfreePredicate = pkg: builtins.elem (builtins.parseDrvName pkg.name).name [ "broadcom-sta" "brave" ];
   nixpkgs.config.allowInsecurePredicate = pkg: builtins.elem (builtins.parseDrvName pkg.name).name [ "broadcom-sta" ];
@@ -16,7 +16,6 @@
   virtualisation.hypervGuest.enable = lib.mkForce false;
   services.xe-guest-utilities.enable = lib.mkForce false;
 
-  # Drop Firefox and mesa-demos; epiphany (GNOME Web) is kept as the lightweight browser
   environment.defaultPackages = with pkgs; [
     gparted
     vim
@@ -24,28 +23,14 @@
     brave
   ];
 
-  # Strip GNOME apps that serve no purpose on an installer ISO
-  environment.gnome.excludePackages = with pkgs; [
-    baobab            # disk usage analyzer
-    cheese            # webcam app
-    decibels          # audio player
-    gnome-calendar
-    gnome-characters
-    gnome-clocks
-    gnome-connections # remote desktop client
-    gnome-contacts
-    gnome-font-viewer
-    gnome-logs
-    gnome-maps
-    gnome-music
-    gnome-system-monitor
-    gnome-tour        # first-run welcome tour
-    gnome-user-docs
-    gnome-weather
-    seahorse          # passwords and keys
-    simple-scan       # scanner app
-    totem             # video player
-    yelp              # help browser
+  # Strip KDE apps that serve no purpose on an installer ISO
+  environment.plasma6.excludePackages = with pkgs.kdePackages; [
+    plasma-workspace-wallpapers
+    elisa        # music player
+    gwenview     # image viewer
+    spectacle    # screenshot tool
+    khelpcenter  # help browser
+    krdp         # remote desktop
   ];
 
   boot.initrd.kernelModules = [ "wl" ];
