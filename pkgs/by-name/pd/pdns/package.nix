@@ -24,11 +24,11 @@
 
 stdenv.mkDerivation (finalAttrs: {
   pname = "pdns";
-  version = "5.1.1";
+  version = "5.1.2";
 
   src = fetchurl {
     url = "https://downloads.powerdns.com/releases/pdns-${finalAttrs.version}.tar.bz2";
-    hash = "sha256-CJN5Vc5ES7sKq/32pfGNSD3ViT12FTmBG+F6m2zzO2o=";
+    hash = "sha256-aFWWelSte13on5EPBeNI4xey7YOetJj5bDjBr3oerzg=";
   };
   # redact configure flags from version output to reduce closure size
   patches = [ ./version.patch ];
@@ -101,6 +101,7 @@ stdenv.mkDerivation (finalAttrs: {
   __structuredAttrs = true;
 
   meta = {
+    changelog = "https://doc.powerdns.com/authoritative/changelog/${lib.versions.majorMinor finalAttrs.version}.html#change-${finalAttrs.version}";
     description = "Authoritative DNS server";
     homepage = "https://www.powerdns.com";
     platforms = lib.platforms.unix;
