@@ -894,6 +894,12 @@ assertNoAdditions {
     };
   });
 
+  cocci-syntax = super.cocci-syntax.overrideAttrs (old: {
+    meta = old.meta // {
+      license = lib.licenses.vim;
+    };
+  });
+
   codecompanion-history-nvim = super.codecompanion-history-nvim.overrideAttrs {
     dependencies = with self; [
       # transitive dependency for codecompanion-nvim
@@ -935,6 +941,7 @@ assertNoAdditions {
     nvimSkipModules = [
       "repro_blink"
       "repro_cmp"
+      "repro_native_completion"
     ];
   };
 
@@ -3024,11 +3031,24 @@ assertNoAdditions {
     ];
   };
 
+  neovim-project = super.neovim-project.overrideAttrs {
+    dependencies = with self; [
+      plenary-nvim
+      neovim-session-manager
+    ];
+  };
+
   neovim-sensible = super.neovim-sensible.overrideAttrs (old: {
     meta = old.meta // {
       license = lib.licenses.mit;
     };
   });
+
+  neovim-session-manager = super.neovim-session-manager.overrideAttrs {
+    dependencies = with self; [
+      plenary-nvim
+    ];
+  };
 
   neovim-tips = super.neovim-tips.overrideAttrs {
     dependencies = [
@@ -3082,6 +3102,10 @@ assertNoAdditions {
 
   noice-nvim = super.noice-nvim.overrideAttrs {
     dependencies = [ self.nui-nvim ];
+  };
+
+  none-ls-extras-nvim = super.none-ls-extras-nvim.overrideAttrs {
+    dependencies = [ self.none-ls-nvim ];
   };
 
   none-ls-nvim = super.none-ls-nvim.overrideAttrs {
@@ -3302,6 +3326,7 @@ assertNoAdditions {
   };
 
   nvim-jdtls = super.nvim-jdtls.overrideAttrs (old: {
+    runtimeDeps = [ python3 ];
     meta = old.meta // {
       license = lib.licenses.gpl3Only;
     };
@@ -3446,7 +3471,7 @@ assertNoAdditions {
     # Optional toggleterm integration
     checkInputs = [ self.toggleterm-nvim ];
     dependencies = with self; [
-      nvim-treesitter-legacy
+      nvim-treesitter
       nvim-treesitter-parsers.c_sharp
       nvim-treesitter-parsers.go
       nvim-treesitter-parsers.haskell
@@ -3583,7 +3608,6 @@ assertNoAdditions {
       snacks-nvim
       telescope-nvim
     ];
-    dependencies = [ self.plenary-nvim ];
     nvimSkipModules = [
       # Issue reproduction file
       "minimal"
@@ -5803,22 +5827,6 @@ assertNoAdditions {
   vim-zscript = super.vim-zscript.overrideAttrs (old: {
     meta = old.meta // {
       license = lib.licenses.cc0;
-    };
-  });
-
-  vimacs = super.vimacs.overrideAttrs (old: {
-    buildPhase = ''
-      substituteInPlace bin/vim \
-        --replace-fail '/usr/bin/vim' 'vim' \
-        --replace-fail '/usr/bin/gvim' 'gvim'
-      # remove unnecessary duplicated bin wrapper script
-      rm -r plugin/vimacs
-    '';
-    meta = old.meta // {
-      description = "Vim-Improved eMACS: Emacs emulation plugin for Vim";
-      homepage = "http://algorithm.com.au/code/vimacs";
-      license = lib.licenses.gpl2Plus;
-      maintainers = with lib.maintainers; [ millerjason ];
     };
   });
 
